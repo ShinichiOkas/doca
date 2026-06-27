@@ -12,10 +12,13 @@ class TestTools(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
         self.original_workspace = config.WORKSPACE_DIR
         config.WORKSPACE_DIR = os.path.abspath(self.test_dir)
+        # 追加許可パスは毎テスト空に戻す
+        self._allowed_token = config.EXTRA_ALLOWED_PATHS.set(())
 
     def tearDown(self):
         # テスト後のお掃除
         config.WORKSPACE_DIR = self.original_workspace
+        config.EXTRA_ALLOWED_PATHS.reset(self._allowed_token)
         shutil.rmtree(self.test_dir)
 
     def test_write_and_read_file(self):
@@ -66,6 +69,40 @@ class TestTools(unittest.TestCase):
         with self.assertRaises(ValueError):
             # 絶対パスでのワークスペース外指定
             tools._secure_path("C:/windows/system32/cmd.exe" if platform.system() == "Windows" else "/etc/passwd")
+
+    def test_extra_allowed_path_grants_write(self):
+        # WORKSPACE_DIR の外（兄弟ディレクトリ）を追加許可パスとして登録すると書き込めること
+        coworking = tempfile.mkdtemp()
+        try:
+            target = os.path.join(coworking, "out.txt")
+            # 許可前は拒否される
+            with self.assertRaises(ValueError):
+                tools._secure_path(target)
+            # 親エージェントから渡された想定で許可パスを登録
+            config.EXTRA_ALLOWED_PATHS.set((os.path.abspath(coworking),))
+            res = tools.write_file(target, "from parent")
+            self.assertIn("Success", res)
+            with open(target, "r", encoding="utf-8") as f:
+                self.assertEqual(f.read(), "from parent")
+        finally:
+            shutil.rmtree(coworking)
+
+    def test_extra_allowed_path_no_prefix_leak(self):
+        # 前方一致による誤許可が起きないこと（許可: '...foo' / 拒否対象: '...foo-secret'）
+        base = tempfile.mkdtemp()
+        try:
+            allowed = os.path.join(base, "foo")
+            sibling = os.path.join(base, "foo-secret")
+            os.makedirs(allowed)
+            os.makedirs(sibling)
+            config.EXTRA_ALLOWED_PATHS.set((os.path.abspath(allowed),))
+            # 許可ディレクトリ配下はOK
+            tools._secure_path(os.path.join(allowed, "ok.txt"))
+            # 名前が前方一致する兄弟ディレクトリは拒否される
+            with self.assertRaises(ValueError):
+                tools._secure_path(os.path.join(sibling, "leak.txt"))
+        finally:
+            shutil.rmtree(base)
 
     def test_run_command(self):
         # コマンド実行テスト

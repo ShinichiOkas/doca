@@ -5,15 +5,34 @@ import platform
 import shutil
 from doca import config
 
+def _is_within(abs_path: str, root: str) -> bool:
+    """
+    abs_path が root ディレクトリ（root自身を含む）の配下にあるか判定する。
+    os.path.commonpath を用いるため、文字列前方一致のような誤判定
+    （例: 'doca' に対し 'doca-secret' を許可してしまう）を起こさない。
+    """
+    root = os.path.abspath(root)
+    try:
+        return os.path.commonpath([abs_path, root]) == root
+    except ValueError:
+        # ドライブが異なる等で共通パスが取れない場合は配下ではない
+        return False
+
 def _secure_path(path: str) -> str:
     """
-    対象パスを絶対パスに変換し、WORKSPACE_DIR配下にあるか確認する。
-    配下にない場合は例外をスローする。
+    対象パスを絶対パスに変換し、許可ディレクトリ配下にあるか確認する。
+    許可ディレクトリは WORKSPACE_DIR と、親エージェントから渡された
+    追加許可パス（config.EXTRA_ALLOWED_PATHS）。
+    いずれの配下にもない場合は例外をスローする。
     """
     abs_path = os.path.abspath(os.path.join(config.WORKSPACE_DIR, path))
-    if not abs_path.startswith(config.WORKSPACE_DIR):
-        raise ValueError(f"Access Denied: Path '{path}' is outside the workspace '{config.WORKSPACE_DIR}'")
-    return abs_path
+    allowed_roots = [config.WORKSPACE_DIR, *config.EXTRA_ALLOWED_PATHS.get()]
+    for root in allowed_roots:
+        if _is_within(abs_path, root):
+            return abs_path
+    raise ValueError(
+        f"Access Denied: Path '{path}' is outside the allowed workspace(s) {allowed_roots}"
+    )
 
 def read_file(path: str) -> str:
     """指定されたファイルの内容を読み込む"""

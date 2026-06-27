@@ -15,6 +15,7 @@ import uvicorn
 
 from doca import config
 from doca import agent
+from doca import logger
 
 # ポート検出用
 actual_port = config.DEFAULT_PORT
@@ -72,21 +73,23 @@ def send_webhook(url: str, payload: dict):
         )
         with urllib.request.urlopen(req, timeout=10) as res:
             res.read()
+        logger.log_info(f"Webhook通知送信成功: {url}")
     except Exception as e:
+        logger.log_error(f"Webhook送信失敗 ({url}): {str(e)}", exc_info=True)
         sys.stderr.write(f"Webhook送信失敗 ({url}): {str(e)}\n")
         sys.stderr.flush()
 
-async def execute_task_async(task_id: str, task_prompt: str, callback_url: str = None):
+async def execute_task_async(task_id: str, task_prompt: str, callback_url: str = None, workspace_paths: List[str] = None):
     """エージェント思考ループをバックグラウンドで実行する"""
     tasks_db[task_id]["status"] = "TASK_STATE_WORKING"
     queue = progress_queues[task_id]
+    loop = asyncio.get_running_loop()
     
     # SSE進捗通知用ヘルパー
     def on_progress(msg: str, percent: int):
         # メモリDBの更新
         tasks_db[task_id]["last_progress"] = {"message": msg, "percentage": percent}
         # SSEキューへの格納（ノンブロッキング）
-        loop = asyncio.get_event_loop()
         loop.call_soon_threadsafe(
             queue.put_nowait,
             {"taskId": task_id, "message": msg, "percentage": percent}
@@ -98,14 +101,14 @@ async def execute_task_async(task_id: str, task_prompt: str, callback_url: str =
 
     try:
         # LLMを実行（同期処理のため、別スレッドで安全に実行）
-        loop = asyncio.get_event_loop()
         final_answer = await loop.run_in_executor(
             None,
             agent.run_agent_loop,
             task_prompt,
             on_progress,
             tasks_db[task_id]["history"],
-            is_cancelled
+            is_cancelled,
+            workspace_paths
         )
         
         if is_cancelled():
@@ -131,7 +134,6 @@ async def execute_task_async(task_id: str, task_prompt: str, callback_url: str =
         }
         
     # SSE終了を伝えるシグナルをキューに投入
-    loop = asyncio.get_event_loop()
     loop.call_soon_threadsafe(
         queue.put_nowait,
         {"taskId": task_id, "status": tasks_db[task_id]["status"]}
@@ -157,7 +159,8 @@ def get_agent_card():
         "version": "0.1.0",
         "description": "Ollamaバックエンドのミニマルコーディングエージェント",
         "capabilities": {
-            "tools": True
+            "tools": True,
+            "workspacePaths": True
         },
         "skills": [
             {
@@ -186,6 +189,8 @@ async def json_rpc_handler(request: Request, background_tasks: BackgroundTasks):
     method = body.get("method")
     params = body.get("params", {})
 
+    logger.log_info(f"JSON-RPC要求受信: id={rpc_id}, method={method}")
+
     if not method:
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32600, "message": "Invalid Request: 'method' is required"}}
 
@@ -206,9 +211,27 @@ async def json_rpc_handler(request: Request, background_tasks: BackgroundTasks):
         # タスクIDの生成
         task_id = str(uuid.uuid4())
         
-        # Webhook URL (params の callbackUrl または webhookUrl から抽出)
-        callback_url = params.get("callbackUrl") or params.get("webhookUrl")
-        
+        # Webhook URL の抽出 (A2A 規約: params["configuration"]["pushNotificationConfig"]["url"] もしくは直下)
+        callback_url = None
+        if "configuration" in params and isinstance(params["configuration"], dict):
+            cfg = params["configuration"]
+            if "pushNotificationConfig" in cfg and isinstance(cfg["pushNotificationConfig"], dict):
+                callback_url = cfg["pushNotificationConfig"].get("url")
+        if not callback_url:
+            callback_url = params.get("callbackUrl") or params.get("webhookUrl") or params.get("callback_url") or params.get("webhook_url")
+
+        # 親エージェントから渡される書き込み許可パスの抽出
+        # (A2A 規約: params["configuration"]["workspacePaths"] もしくは params 直下)
+        workspace_paths: List[str] = []
+        if "configuration" in params and isinstance(params["configuration"], dict):
+            wp = params["configuration"].get("workspacePaths")
+            if isinstance(wp, list):
+                workspace_paths = [p for p in wp if isinstance(p, str)]
+        if not workspace_paths:
+            wp = params.get("workspacePaths")
+            if isinstance(wp, list):
+                workspace_paths = [p for p in wp if isinstance(p, str)]
+
         # DB登録
         tasks_db[task_id] = {
             "status": "TASK_STATE_SUBMITTED",
@@ -220,7 +243,7 @@ async def json_rpc_handler(request: Request, background_tasks: BackgroundTasks):
         progress_queues[task_id] = asyncio.Queue()
 
         # バックグラウンド実行
-        background_tasks.add_task(execute_task_async, task_id, task_text, callback_url)
+        background_tasks.add_task(execute_task_async, task_id, task_text, callback_url, workspace_paths)
 
         return {
             "jsonrpc": "2.0",
@@ -320,10 +343,21 @@ def run_server():
     global actual_port
     actual_port = find_free_port(config.DEFAULT_PORT)
     
-    # 起動ログが stdout に混ざらないように log_level は warning に設定
+    # Uvicornのアクセスログ等が stdout に混ざらないように、全ての出力を stderr に向ける
+    log_config = uvicorn.config.LOGGING_CONFIG
+    for logger_name in ["uvicorn", "uvicorn.error", "uvicorn.access"]:
+        if logger_name in log_config["loggers"]:
+            log_config["loggers"][logger_name]["propagate"] = False
+    for handler_name, handler in log_config["handlers"].items():
+        if handler.get("stream") == "ext://sys.stdout":
+            handler["stream"] = "ext://sys.stderr"
+            
+    logger.log_info(f"Doca A2A サーバー起動開始 (ポート: {actual_port})")
+    
     uvicorn.run(
         app,
         host="127.0.0.1",
         port=actual_port,
-        log_level="warning"
+        log_level="info",
+        log_config=log_config
     )

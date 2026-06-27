@@ -7,6 +7,13 @@ import unittest
 import urllib.request
 import json
 
+# WindowsのCP932環境でのエンコードエラーを避けるためのクリーンアップヘルパー
+def safe_str(s: str) -> str:
+    if not s:
+        return ""
+    s = s.replace("⚠️", "[WARN]")
+    return s.encode(sys.stdout.encoding or "cp932", errors="replace").decode(sys.stdout.encoding or "cp932", errors="replace")
+
 # Ollama の接続確認
 def is_ollama_available() -> bool:
     try:
@@ -84,8 +91,8 @@ class TestIntegration(unittest.TestCase):
         task = "Create a python file named 'hello.py' that prints 'Hello, Doca!' when executed. Do not print anything else."
         
         result = self.run_doca_task(task)
-        print(f"Doca CLI Stdout:\n{result.stdout}")
-        print(f"Doca CLI Stderr:\n{result.stderr}")
+        print(f"Doca CLI Stdout:\n{safe_str(result.stdout)}")
+        print(f"Doca CLI Stderr:\n{safe_str(result.stderr)}")
         self.assertEqual(result.returncode, 0, "Doca task failed")
 
         # 生成されたファイルの確認
@@ -103,9 +110,9 @@ class TestIntegration(unittest.TestCase):
         task = "Write a python file named 'fib.py' containing a function 'fib(n)' that computes the n-th Fibonacci number. At the bottom of the file, add an assertion: 'assert fib(10) == 55'. Run the file using run_command to make sure the assertion passes."
         
         result = self.run_doca_task(task)
-        print(f"Doca CLI Stdout:\n{result.stdout}")
-        print(f"Doca CLI Stderr:\n{result.stderr}")
-        self.assertEqual(result.returncode, 0, f"Doca task failed.\nStderr:\n{result.stderr}")
+        print(f"Doca CLI Stdout:\n{safe_str(result.stdout)}")
+        print(f"Doca CLI Stderr:\n{safe_str(result.stderr)}")
+        self.assertEqual(result.returncode, 0, f"Doca task failed.\nStderr:\n{safe_str(result.stderr)}")
 
         fib_file = os.path.join(self.test_workspace, "fib.py")
         self.assertTrue(os.path.exists(fib_file), "fib.py was not created")
@@ -147,12 +154,12 @@ def test_divide_error():
             f.write(test_content)
 
         # 指示: pytestを実行し、エラーを検知させ、バグを直させて再テストでパスさせる
-        task = "We have 'calc.py' and 'test_calc.py' in the workspace. First, execute pytest on 'test_calc.py' to see the failures. Then, patch 'calc.py' to fix the bugs: 1) add(a, b) should perform addition, and 2) divide(a, 0) should raise ValueError instead of division by zero. Finally, run pytest again to ensure all tests pass."
+        task = "We have 'calc.py' and 'test_calc.py' in the workspace. First, use read_file to inspect both files and run pytest on 'test_calc.py' to see the failures. Then, patch 'calc.py' to fix the bugs: 1) add(a, b) should perform addition, and 2) divide(a, 0) should raise ValueError instead of division by zero. Finally, run pytest again to ensure all tests pass."
 
         result = self.run_doca_task(task)
-        print(f"Doca CLI Stdout:\n{result.stdout}")
-        print(f"Doca CLI Stderr:\n{result.stderr}")
-        self.assertEqual(result.returncode, 0, f"Doca debugging task failed.\nStderr:\n{result.stderr}")
+        print(f"Doca CLI Stdout:\n{safe_str(result.stdout)}")
+        print(f"Doca CLI Stderr:\n{safe_str(result.stderr)}")
+        self.assertEqual(result.returncode, 0, f"Doca debugging task failed.\nStderr:\n{safe_str(result.stderr)}")
 
         # 最終的にテストがパスするか自身でも確認
         run_res = subprocess.run(["pytest", "test_calc.py"], capture_output=True, text=True)
@@ -163,7 +170,7 @@ def test_divide_error():
         print("\n--- [Hard GUI Test] Creating GUI Scientific Calculator ---")
         
         task = (
-            "Create a GUI-based scientific calculator application in a file named 'calculator.py' using Python's standard 'tkinter' library. "
+            "First, create a new file named 'calculator.py' using write_file to implement a GUI-based scientific calculator application using Python's standard 'tkinter' library. "
             "It must support basic math operations (+, -, *, /) and scientific functions like square root (sqrt), power (^), and trigonometry (sin, cos). "
             "To allow automated testing, you MUST implement a test mode in calculator.py: if the environment variable 'TEST_MODE' is set to '1' "
             "OR if 'TEST_MODE=1' is passed as a command-line argument (in sys.argv), "
@@ -172,9 +179,9 @@ def test_divide_error():
         )
 
         result = self.run_doca_task(task)
-        print(f"Doca CLI Stdout:\n{result.stdout}")
-        print(f"Doca CLI Stderr:\n{result.stderr}")
-        self.assertEqual(result.returncode, 0, f"Doca GUI calculator task failed.\nStderr:\n{result.stderr}")
+        print(f"Doca CLI Stdout:\n{safe_str(result.stdout)}")
+        print(f"Doca CLI Stderr:\n{safe_str(result.stderr)}")
+        self.assertEqual(result.returncode, 0, f"Doca GUI calculator task failed.\nStderr:\n{safe_str(result.stderr)}")
 
         calc_file = os.path.join(self.test_workspace, "calculator.py")
         self.assertTrue(os.path.exists(calc_file), "calculator.py was not created")

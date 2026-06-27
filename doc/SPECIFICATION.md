@@ -92,7 +92,7 @@ FastAPIを使用したWebサーバーとして動作し、親エージェント�
   ```
 
 #### 2.3.1. 起動ハンドシェイク（stdio spawn 時）
-1. 起動時に、利用可能な空きポート（デフォルト: `8765` から開始してインクリメント）を検索し、ソケットを確保します。
+1. 起動時に、利用可能な空きポート（デフォルト: `8780` から開始してインクリメント）を検索し、ソケットを確保します。
 2. 待受（FastAPIサーバーの起動）完了後、`stdout` に以下のJSON（1行）のみを出力します。
    ```json
    {"a2a": "ready", "url": "http://127.0.0.1:<port>", "agent": "doca", "version": "0.1.0"}
@@ -132,6 +132,24 @@ FastAPIを使用したWebサーバーとして動作し、親エージェント�
       }
     }
     ```
+  - **`params.configuration`（任意）**: 親エージェントからタスク単位の設定を渡します。
+    - `pushNotificationConfig.url` (str): 完了時の Webhook 通知先 URL。
+    - `workspacePaths` (str[]): **このタスクに限り、ワークスペース（実行時ディレクトリ）に加えて読み書きを許可する追加ディレクトリのリスト。** 親エージェントが指定した協働フォルダ（Coworkingフォルダ等）を doca のサンドボックス外であっても書き込み可能にするための仕組みです。指定された各ディレクトリ配下のみが許可対象で、前方一致による誤許可は行いません（`os.path.commonpath` による厳密判定）。タスクごとに分離され、他タスクの許可設定には影響しません。
+    - リクエスト例（協働フォルダを許可する場合）:
+      ```json
+      {
+        "method": "SendMessage",
+        "params": {
+          "message": {
+            "parts": [{"text": "成果物を S:/work/develop/temp に格納してください"}]
+          },
+          "configuration": {
+            "workspacePaths": ["S:/work/develop/temp"]
+          }
+        }
+      }
+      ```
+    - 注意: `workspacePaths` はサンドボックスの許可リストを拡張するだけです。エージェントが実際にその場所へ書き込むためには、書き込み先パスをタスク本文（`message.parts[].text`）にも明示する必要があります。
 
 - **`GetTask`**: タスク状態の取得
   - パラメータ: `{"id": "<task-id>"}`
@@ -147,6 +165,8 @@ A2Aサーバーは、タスクの進捗状況をSSEストリームでリアル�
 
 #### 2.3.4. Agent Card（`/.well-known/agent-card.json`）
 エージェントのプロフィールと提供ツール（capabilities / skills）を定義したJSONを返します。
+- `capabilities.tools` (bool): ツール呼び出し対応。
+- `capabilities.workspacePaths` (bool): `SendMessage` の `params.configuration.workspacePaths` による追加許可ディレクトリ指定に対応していることを示します（[2.3.2](#232-json-rpc-v10-エンドポイントrpc) 参照）。
 
 ---
 
@@ -160,7 +180,8 @@ A2Aサーバーは、タスクの進捗状況をSSEストリームでリアル�
 - **引数**:
   - `path` (str): 読み込むファイルの相対・絶対パス。
 - **動作制限**:
-  - ディレクトリトラバーサル防止のため、エージェント実行時ディレクトリ配下（ワークスペース内）のファイルに限定します。
+  - ディレクトリトラバーサル防止のため、原則としてエージェント実行時ディレクトリ配下（ワークスペース内）のファイルに限定します。
+  - ただし、`SendMessage` の `params.configuration.workspacePaths` で親エージェントから渡された追加許可ディレクトリ配下も、当該タスクに限り読み書き可能です（[2.3.2](#232-json-rpc-v10-エンドポイントrpc) 参照）。許可判定は `os.path.commonpath` による厳密な配下チェックで行い、文字列前方一致による誤許可は発生しません。
 
 ### 3.2. `write_file`
 指定されたファイルを作成し、または上書きします。

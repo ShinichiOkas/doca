@@ -51,6 +51,71 @@ class TestServer(unittest.TestCase):
         self.assertEqual(args[1], "テストタスクです")
         self.assertEqual(args[2], "http://example.com/webhook")
 
+    @patch("doca.server.execute_task_async")
+    def test_json_rpc_send_message_a2a_spec_webhook(self, mock_execute_task):
+        # A2A v1.0規格のネストされたWebhook URL指定のテスト
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "req-1b",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "messageId": "msg-1b",
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "テストタスクです"}]
+                },
+                "configuration": {
+                    "pushNotificationConfig": {
+                        "url": "http://example.com/webhook-a2a"
+                    }
+                }
+            }
+        }
+        
+        headers = {"A2A-Version": "1.0"}
+        response = self.client.post("/rpc", json=payload, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        self.assertIn("result", data)
+        task_id = data["result"]["task"]["id"]
+        
+        # バックグラウンドタスクが正しい引数で呼び出されたか
+        mock_execute_task.assert_called_once()
+        args = mock_execute_task.call_args[0]
+        self.assertEqual(args[0], task_id)
+        self.assertEqual(args[1], "テストタスクです")
+        self.assertEqual(args[2], "http://example.com/webhook-a2a")
+
+    @patch("doca.server.execute_task_async")
+    def test_json_rpc_send_message_workspace_paths(self, mock_execute_task):
+        # 親エージェントが configuration.workspacePaths で許可パスを渡すケース
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "req-1c",
+            "method": "SendMessage",
+            "params": {
+                "message": {
+                    "messageId": "msg-1c",
+                    "role": "ROLE_USER",
+                    "parts": [{"text": "成果物を temp に格納してください"}]
+                },
+                "configuration": {
+                    "workspacePaths": ["S:/work/develop/temp"]
+                }
+            }
+        }
+
+        headers = {"A2A-Version": "1.0"}
+        response = self.client.post("/rpc", json=payload, headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        mock_execute_task.assert_called_once()
+        args = mock_execute_task.call_args[0]
+        # args: (task_id, task_text, callback_url, workspace_paths)
+        self.assertEqual(args[1], "成果物を temp に格納してください")
+        self.assertEqual(args[3], ["S:/work/develop/temp"])
+
     def test_json_rpc_get_task_not_found(self):
         payload = {
             "jsonrpc": "2.0",

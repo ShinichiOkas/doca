@@ -1192,6 +1192,7 @@
   ('doca.agent', 'S:\\work\\develop\\doca\\src\\doca\\agent.py', 'PYMODULE'),
   ('doca.cli', 'S:\\work\\develop\\doca\\src\\doca\\cli.py', 'PYMODULE'),
   ('doca.config', 'S:\\work\\develop\\doca\\src\\doca\\config.py', 'PYMODULE'),
+  ('doca.logger', 'S:\\work\\develop\\doca\\src\\doca\\logger.py', 'PYMODULE'),
   ('doca.repl', 'S:\\work\\develop\\doca\\src\\doca\\repl.py', 'PYMODULE'),
   ('doca.server', 'S:\\work\\develop\\doca\\src\\doca\\server.py', 'PYMODULE'),
   ('doca.tools', 'S:\\work\\develop\\doca\\src\\doca\\tools.py', 'PYMODULE'),

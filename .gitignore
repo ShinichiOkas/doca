@@ -1,3 +1,10 @@
 /.pytest_cache
 /.venv
 /dist
+
+# 実行ログ・タスク残骸（リポジトリに含めない）
+/doca.log
+/pi.py
+/calculate_pi.py
+/chudnovsky_pi.py
+/Coworking/
