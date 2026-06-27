@@ -1,0 +1,2 @@
+[console_scripts]
+doca = doca.__main__:main

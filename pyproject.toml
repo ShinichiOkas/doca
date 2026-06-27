@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "doca"
+version = "0.1.0"
+description = "Ollama-powered Minimal Coding Agent"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0"
+]
+
+[project.scripts]
+doca = "doca.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
