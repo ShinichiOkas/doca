@@ -5,6 +5,14 @@ import platform
 import shutil
 from doca import config
 
+def _base_dir() -> str:
+    """
+    相対パスの解決基準ディレクトリ。
+    親エージェントが作業ベース（config.WORK_BASE_DIR）を指定していればそれを、
+    無ければ WORKSPACE_DIR を返す。
+    """
+    return config.WORK_BASE_DIR.get() or config.WORKSPACE_DIR
+
 def _is_within(abs_path: str, root: str) -> bool:
     """
     abs_path が root ディレクトリ（root自身を含む）の配下にあるか判定する。
@@ -25,8 +33,8 @@ def _secure_path(path: str) -> str:
     追加許可パス（config.EXTRA_ALLOWED_PATHS）。
     いずれの配下にもない場合は例外をスローする。
     """
-    abs_path = os.path.abspath(os.path.join(config.WORKSPACE_DIR, path))
-    allowed_roots = [config.WORKSPACE_DIR, *config.EXTRA_ALLOWED_PATHS.get()]
+    abs_path = os.path.abspath(os.path.join(_base_dir(), path))
+    allowed_roots = [config.WORKSPACE_DIR, _base_dir(), *config.EXTRA_ALLOWED_PATHS.get()]
     for root in allowed_roots:
         if _is_within(abs_path, root):
             return abs_path
@@ -113,7 +121,7 @@ def run_command(command: str) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=30,  # 30秒タイムアウト
-            cwd=config.WORKSPACE_DIR
+            cwd=_base_dir()
         )
         
         # 文字コード対策のデコード処理

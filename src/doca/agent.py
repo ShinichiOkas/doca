@@ -152,9 +152,21 @@ def run_agent_loop(
     )
     config.EXTRA_ALLOWED_PATHS.set(normalized_allowed)
 
+    # 先頭の許可パスを「作業ベースディレクトリ」とする。
+    # これにより相対パスの解決基準と run_command の cwd がこのフォルダになり、
+    # 相対パスで書かれた成果物も指定フォルダ配下に格納される。
+    work_base = normalized_allowed[0] if normalized_allowed else None
+    config.WORK_BASE_DIR.set(work_base)
+    if work_base:
+        # run_command の cwd 等で必要になるため、作業ベースは存在を保証する。
+        try:
+            os.makedirs(work_base, exist_ok=True)
+        except OSError as e:
+            logger.log_warning(f"作業ベースディレクトリの作成に失敗: {work_base} ({e})")
+
     logger.log_info(f"エージェント思考ループ開始: タスク='{task}'")
     if normalized_allowed:
-        logger.log_info(f"親エージェントから追加の書き込み許可パスを受領: {list(normalized_allowed)}")
+        logger.log_info(f"親エージェントから追加の書き込み許可パスを受領: {list(normalized_allowed)} / 作業ベース: {work_base}")
     if history is None:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     else:

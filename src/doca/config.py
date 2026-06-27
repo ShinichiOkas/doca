@@ -18,3 +18,10 @@ WORKSPACE_DIR = os.path.abspath(os.getcwd())
 # 並行タスクが互いの許可設定に干渉しないよう、タスク（実行コンテキスト）単位で
 # 分離するために ContextVar を用いる（グローバル変数だと並行実行時に混線する）。
 EXTRA_ALLOWED_PATHS: ContextVar = ContextVar("EXTRA_ALLOWED_PATHS", default=())
+
+# 親エージェントが指定した「作業ベースディレクトリ」。
+# 設定されている場合、相対パスの解決基準と run_command の cwd を、
+# WORKSPACE_DIR の代わりにこのディレクトリにする（タスク単位）。
+# これにより、相対パス（例: 'out.py'）で書かれた成果物も指定フォルダ配下に格納される。
+# 未設定（None）の場合は従来どおり WORKSPACE_DIR を基準とする。
+WORK_BASE_DIR: ContextVar = ContextVar("WORK_BASE_DIR", default=None)

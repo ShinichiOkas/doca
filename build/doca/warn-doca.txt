@@ -33,7 +33,7 @@ missing module named _manylinux - imported by setuptools._distutils._vendor.pack
 missing module named asyncio.DefaultEventLoopPolicy - imported by asyncio (delayed, conditional), asyncio.events (delayed, conditional)
 missing module named usercustomize - imported by site (delayed, optional)
 missing module named sitecustomize - imported by site (delayed, optional)
-missing module named posix - imported by posixpath (optional), shutil (conditional), importlib._bootstrap_external (conditional), os (conditional, optional), _pyrepl.unix_console (delayed, optional)
+missing module named posix - imported by os (conditional, optional), posixpath (optional), shutil (conditional), importlib._bootstrap_external (conditional), _pyrepl.unix_console (delayed, optional)
 missing module named resource - imported by posix (top-level)
 missing module named setuptools._vendor.wheel._setuptools_logging - imported by setuptools._vendor.wheel (optional), setuptools._vendor.wheel.util (optional)
 missing module named annotationlib - imported by typing_extensions (conditional), pydantic._internal._typing_extra (conditional), attr._compat (conditional), pydantic._internal._decorators (delayed, conditional), pydantic._internal._model_construction (delayed, conditional), fastapi.dependencies.utils (delayed, conditional, optional)

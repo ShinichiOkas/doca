@@ -12,13 +12,15 @@ class TestTools(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
         self.original_workspace = config.WORKSPACE_DIR
         config.WORKSPACE_DIR = os.path.abspath(self.test_dir)
-        # 追加許可パスは毎テスト空に戻す
+        # 追加許可パス・作業ベースは毎テスト初期状態に戻す
         self._allowed_token = config.EXTRA_ALLOWED_PATHS.set(())
+        self._base_token = config.WORK_BASE_DIR.set(None)
 
     def tearDown(self):
         # テスト後のお掃除
         config.WORKSPACE_DIR = self.original_workspace
         config.EXTRA_ALLOWED_PATHS.reset(self._allowed_token)
+        config.WORK_BASE_DIR.reset(self._base_token)
         shutil.rmtree(self.test_dir)
 
     def test_write_and_read_file(self):
@@ -103,6 +105,21 @@ class TestTools(unittest.TestCase):
                 tools._secure_path(os.path.join(sibling, "leak.txt"))
         finally:
             shutil.rmtree(base)
+
+    def test_work_base_dir_redirects_relative_writes(self):
+        # 親が作業ベースを指定すると、相対パスの成果物がそのフォルダ配下に入ること
+        coworking = tempfile.mkdtemp()
+        try:
+            config.EXTRA_ALLOWED_PATHS.set((os.path.abspath(coworking),))
+            config.WORK_BASE_DIR.set(os.path.abspath(coworking))
+            res = tools.write_file("fibonacci.py", "print('fib')")
+            self.assertIn("Success", res)
+            # 作業ベース（協働フォルダ）側に作られる
+            self.assertTrue(os.path.exists(os.path.join(coworking, "fibonacci.py")))
+            # 旧ワークスペース側には作られない
+            self.assertFalse(os.path.exists(os.path.join(self.test_dir, "fibonacci.py")))
+        finally:
+            shutil.rmtree(coworking)
 
     def test_run_command(self):
         # コマンド実行テスト
