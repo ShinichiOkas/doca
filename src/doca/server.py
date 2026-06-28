@@ -160,7 +160,27 @@ def get_agent_card():
         "description": "Ollamaバックエンドのミニマルコーディングエージェント",
         "capabilities": {
             "tools": True,
-            "workspacePaths": True
+            # 親エージェント（クライアント）が使い方を理解できるよう、機能の入力契約を自己記述する。
+            "workspacePaths": {
+                "supported": True,
+                "location": "params.configuration.workspacePaths",
+                "type": "string[]",
+                "description": (
+                    "親エージェントがタスク単位で指定する作業フォルダのリスト。"
+                    "先頭エントリがそのタスクの『作業ベースディレクトリ』となり、"
+                    "ツールの相対パス解決基準および run_command の作業ディレクトリ(cwd)になる。"
+                    "各エントリ配下は読み書きが許可される(エージェント起動時の WORKSPACE_DIR に追加して)。"
+                    "未指定時は WORKSPACE_DIR(エージェント起動ディレクトリ)が基準。"
+                    "成果物を特定フォルダに格納させたい場合は、そのフォルダを先頭に指定すること。"
+                ),
+                "example": {
+                    "method": "SendMessage",
+                    "params": {
+                        "message": {"parts": [{"text": "fibonacci.py を作成してください"}]},
+                        "configuration": {"workspacePaths": ["S:/work/develop/temp"]}
+                    }
+                }
+            }
         },
         "skills": [
             {

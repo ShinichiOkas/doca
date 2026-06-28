@@ -167,7 +167,12 @@ A2Aサーバーは、タスクの進捗状況をSSEストリームでリアル�
 #### 2.3.4. Agent Card（`/.well-known/agent-card.json`）
 エージェントのプロフィールと提供ツール（capabilities / skills）を定義したJSONを返します。
 - `capabilities.tools` (bool): ツール呼び出し対応。
-- `capabilities.workspacePaths` (bool): `SendMessage` の `params.configuration.workspacePaths` による追加許可ディレクトリ指定に対応していることを示します（[2.3.2](#232-json-rpc-v10-エンドポイントrpc) 参照）。
+- `capabilities.workspacePaths` (object): `SendMessage` の `params.configuration.workspacePaths` による作業フォルダ指定への対応を、**使い方ごと自己記述**します。クライアント（親エージェント）がこのカードを読むだけで使い方を理解できるよう、以下のフィールドを含みます（[2.3.2](#232-json-rpc-v10-エンドポイントrpc) 参照）。
+  - `supported` (bool): 対応可否。
+  - `location` (str): パラメータの置き場所（`params.configuration.workspacePaths`）。
+  - `type` (str): 値の型（`string[]`）。
+  - `description` (str): 意味論（先頭エントリが作業ベース＝相対パス解決基準/`run_command` の cwd、各エントリ配下は読み書き許可）。
+  - `example` (object): `SendMessage` リクエストの最小例。
 
 ---
 

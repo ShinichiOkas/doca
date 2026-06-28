@@ -148,13 +148,13 @@ TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read the entire content of a file within the workspace.",
+            "description": "Read the entire content of a file. Paths are resolved against the current working directory (the task's output folder).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to the file from the workspace root."
+                        "description": "Path to the file, normally a simple relative path such as 'main.py' or 'src/util.py'. It is resolved against the current working directory. Do NOT build an absolute path yourself; a plain relative path already points at the correct folder."
                     }
                 },
                 "required": ["path"]
@@ -165,13 +165,13 @@ TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Create a new file or overwrite an existing file with the specified content.",
+            "description": "Create or overwrite a file with the given content. The file is written under the current working directory, which is ALREADY the designated output folder for this task. Missing parent directories are created automatically.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to the file to create or overwrite."
+                        "description": "Where to write, normally a simple relative path such as 'fibonacci.py' or 'docs/README.md'. It is created under the current working directory. Do NOT prepend an absolute base path (e.g. do not turn 'fibonacci.py' into 'C:/some/dir/fibonacci.py') — a plain relative path already lands in the correct output folder."
                     },
                     "content": {
                         "type": "string",
@@ -186,13 +186,13 @@ TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "patch_file",
-            "description": "Partially replace a specific block of text in an existing file. This is highly recommended over write_file for editing files.",
+            "description": "Partially replace a specific block of text in an existing file. This is highly recommended over write_file for editing files. Paths are resolved against the current working directory.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to the file to patch."
+                        "description": "Path to the file to patch, normally a simple relative path resolved against the current working directory. Do NOT build an absolute path yourself."
                     },
                     "target": {
                         "type": "string",
@@ -211,13 +211,13 @@ TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "delete_file",
-            "description": "Delete a file or directory within the workspace.",
+            "description": "Delete a file or directory. Paths are resolved against the current working directory.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Relative path to the file or directory to delete."
+                        "description": "Path to the file or directory to delete, normally a simple relative path resolved against the current working directory. Do NOT build an absolute path yourself."
                     }
                 },
                 "required": ["path"]
@@ -228,13 +228,13 @@ TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Run a non-interactive shell command in the workspace. In Windows, this executes in PowerShell.",
+            "description": "Run a non-interactive shell command. The command runs with its working directory set to the current task's output folder (PowerShell on Windows). Because you are already inside that folder, use relative paths in commands (e.g. 'python fibonacci.py') rather than absolute paths.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": "The command line string to execute."
+                        "description": "The command line string to execute. Prefer relative paths; the command already runs inside the correct working/output directory."
                     }
                 },
                 "required": ["command"]
